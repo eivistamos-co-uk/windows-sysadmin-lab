@@ -5,8 +5,9 @@ Single-instance Windows Server 2025 EC2 lab demonstrating troubleshooting and au
 
 ## Architecture
 - AWS EC2 t3.small instance
-- Security Groups: RDP 3389, HTTP 80
-- IIS installed and tested via public IP
+- Security Group: RDP 3389, HTTP 80
+
+![architecture-diagram](infrastructure/windows-sysadmin-lab-architecture.png)
 
 ## CloudFormation Deployment
 
