@@ -6,14 +6,28 @@ Parameters:
   ProjectName:
     Type: String
     Default: windows-sysadmin-lab
-  Region:
-    Type: String
-    Default: eu-west-2
   AvailabilityZone:
     Type: String
     Default: eu-west-2a
+  ServerOS:
+    Type: String
+    Default: windows-server
+  PersonalIPAddress:
+    Description: Find on whatsmyip.com (append /32 for single IP)
+    Type: String
+  ImageID:
+    Type: AWS::EC2::Image::Id
+    Description: Default here is Windows Server 2025
+    Default: ami-00cd9941a573abb98
+  KeyPairName:
+    Description: Create Key Pair before deployment and specify here
+    Type: AWS::EC2::KeyPair::KeyName
 
 Resources:
+
+  #------------------
+  # Network Components
+  #------------------
 
   VirtualPrivateCloud:
     Type: AWS::EC2::VPC
@@ -40,7 +54,7 @@ Resources:
   InternetGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
-      Tags: 
+      Tags:
         - Key: Name
           Value: !Sub "${ProjectName}-igw"
 
@@ -53,10 +67,10 @@ Resources:
   RouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
-      Tags: 
+      VpcId: !Ref VirtualPrivateCloud
+      Tags:
         - Key: Name
           Value: !Sub "${ProjectName}-vpc-rtb-public"
-      VpcId: !Ref VirtualPrivateCloud
 
   Route:
     Type: AWS::EC2::Route
@@ -73,11 +87,57 @@ Resources:
       SubnetId: !Ref PublicSubnet
 
   #------------------
-  # Work on tomorrow:
-  # - Security Group
-  # -- Security Group Ingress
-  # - Windows Instance
+  # Instance Components
   #------------------
+
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allows access from personal computer
+      GroupName: !Sub "${ServerOS}-os"
+      VpcId: !Ref VirtualPrivateCloud
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3389
+          ToPort: 3389
+          CidrIp: !Ref PersonalIPAddress
+          Description: RDP access via personal laptop
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: !Ref PersonalIPAddress
+          Description: HTTP access via personal laptop
+
+  Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref ImageID
+      InstanceType: t3.small
+      KeyName: !Ref KeyPairName
+      SubnetId: !Ref PublicSubnet
+      SecurityGroupIds:
+        - !Ref SecurityGroup
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            Encrypted: false
+            DeleteOnTermination: true
+            Iops: 3000
+            VolumeSize: 30
+            VolumeType: gp3
+      CreditSpecification:
+        CPUCredits: unlimited
+      MetadataOptions:
+        HttpEndpoint: enabled
+        HttpPutResponseHopLimit: 2
+        HttpTokens: required
+      PrivateDnsNameOptions:
+        EnableResourceNameDnsAAAARecord: false
+        EnableResourceNameDnsARecord: false
+        HostnameType: ip-name
+      Tags:
+        - Key: Name
+          Value: !Ref ServerOS
 
 Outputs:
   VPCId:
@@ -86,3 +146,6 @@ Outputs:
   PublicSubnetId:
     Description: Deployed public subnet ID
     Value: !Ref PublicSubnet
+  InstanceId:
+    Description: Deployed instance ID
+    Value: !Ref Instance
